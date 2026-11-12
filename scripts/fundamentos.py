@@ -172,6 +172,12 @@ def calcular(e: dict, precos: dict) -> dict | None:
     pl_patr = (b.get("pl") or [None] * (i + 1))[i]
     dl = (ind.get("divida_liquida") or [None] * (i + 1))[i]
     margens = [m for m in (ind.get("margem_liquida") or [])[max(0, i - 7):i + 1] if m is not None]
+    escala_ajustada = False
+    if e["mercado"] == "B3" and vm and pl_patr and pl_patr > 0 and vm / pl_patr < 0.02:
+        # algumas empresas informam a quantidade de ações à CVM em milhares
+        vm *= 1000
+        escala_ajustada = True
+        print(f"[Fund] {e['ticker']}: quantidade de ações informada em milhares; ajustada")
 
     f = {
         "periodo": e["trimestres"][i]["l"],
@@ -179,6 +185,7 @@ def calcular(e: dict, precos: dict) -> dict | None:
         "preco_data": preco[1] if preco else None,
         "preco_ticker": (e["ticker_eua"] if e["mercado"] == "BDR" else e["ticker"]) if preco else None,
         "valor_mercado": vm,
+        "escala_acoes_ajustada": escala_ajustada,
         "lucro_ltm": lucro, "receita_ltm": receita, "ebitda_ltm": ebitda,
         # valuation
         "pl": _div(vm, lucro) if (lucro and lucro > 0) else None,

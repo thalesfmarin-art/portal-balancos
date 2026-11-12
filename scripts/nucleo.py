@@ -283,7 +283,9 @@ def resumo_automatico(rotulos: list[str], base: dict[str, list], ind: dict[str, 
         else:
             v = _var(l1, l0)
             txt = f"lucro líquido {_pct(v)} no ano"
-            if v > 0.10:
+            if v is None:
+                pass
+            elif v > 0.10:
                 score += 1; pos.append(txt)
             elif v < -0.10:
                 score -= 1; neg.append(txt)

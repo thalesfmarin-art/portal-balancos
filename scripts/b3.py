@@ -79,6 +79,21 @@ def universo(cfg: dict) -> list[dict]:
     return list(lista.values())
 
 
+def _cnpj_b3(raiz: str) -> str | None:
+    """Consulta o cadastro de empresas da B3 pela raiz do ticker (ex.: CSNA)."""
+    try:
+        p = {"language": "pt-br", "pageNumber": 1, "pageSize": 20, "company": raiz}
+        cod = base64.b64encode(json.dumps(p).encode()).decode()
+        url = f"https://sistemaswebb3-listados.b3.com.br/listedCompaniesProxy/CompanyCall/GetInitialCompanies/{cod}"
+        for r in json.loads(baixar(url, timeout=30, tentativas=2)).get("results", []):
+            if (r.get("issuingCompany") or "").upper() == raiz and r.get("cnpj"):
+                c = re.sub(r"\D", "", r["cnpj"]).zfill(14)
+                return f"{c[:2]}.{c[2:5]}.{c[5:8]}/{c[8:12]}-{c[12:]}"
+    except Exception as e:  # noqa: BLE001
+        print(f"[B3] cadastro B3 indisponível para {raiz}: {e}")
+    return None
+
+
 # ---------------------------------------------------------------- arquivos da CVM
 
 def zip_cvm(tipo: str, ano: int, forcar: bool = False) -> zipfile.ZipFile | None:
@@ -245,8 +260,8 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
     ebit = (_achar(c, "DRE", r"antes do resultado financeiro", 2) or [None])[0]
     financeira = ebit is None
     bruto = (_achar(c, "DRE", r"resultado bruto", 2) or [None])[0]
-    lucro = _achar(c, "DRE", r"(lucro|prejuizo).*(consolidado|liquido).*(periodo|exercicio)", 2,
-                   r"continuad|antes")
+    lucro = _achar(c, "DRE", r"(lucro|prejuizo).*(periodo|exercicio)", 2,
+                   r"continuad|antes|por acao")
     lucro = lucro[-1] if lucro else None
     lucro_contr = None
     if lucro:
@@ -310,8 +325,12 @@ def processar(cfg: dict, cache_ia: dict) -> list[dict]:
     acoes = universo(cfg)
     t2c, info = mapa_tickers()
     grupos: dict[str, dict] = {}
+    raiz = {}
+    for tk, cn in t2c.items():
+        raiz.setdefault(tk[:4], cn)
     for a in acoes:
-        cnpj = t2c.get(a["ticker"].upper())
+        tk = a["ticker"].upper()
+        cnpj = t2c.get(tk) or raiz.get(tk[:4]) or _cnpj_b3(tk[:4])
         if not cnpj:
             print(f"[B3] sem CNPJ para {a['ticker']}")
             continue

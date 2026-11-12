@@ -9,7 +9,9 @@ import time
 from nucleo import (HOJE, Contas, alinhar, baixar, indicadores, meses, para_data, perto,
                     proxima_data_util, resumo_automatico, resumo_ia, rotulo_ano, rotulo_trimestre)
 
-UA = os.environ.get("SEC_USER_AGENT") or "PortalBalancos/1.0 (github.com/thalesfmarin-art/portal-balancos)"
+# A SEC exige um User-Agent com nome e e-mail de contato. Configure o segredo SEC_USER_AGENT
+# no GitHub (ex.: "Seu Nome seuemail@dominio.com").
+UA = os.environ.get("SEC_USER_AGENT") or "PortalBalancos github.com/thalesfmarin-art/portal-balancos"
 H = {"User-Agent": UA, "Accept-Encoding": "gzip, deflate"}
 
 # (demonstração, nome da linha, conceitos alternativos em ordem de preferência, unidade)
@@ -173,7 +175,8 @@ def processar(cfg: dict, cache_ia: dict) -> list[dict]:
     try:
         ciks = mapa_cik()
     except Exception as e:  # noqa: BLE001
-        print(f"[SEC] não consegui baixar a lista de CIKs: {e}")
+        dica = "" if os.environ.get("SEC_USER_AGENT") else " (configure o segredo SEC_USER_AGENT com nome e e-mail)"
+        print(f"[SEC] não consegui baixar a lista de CIKs: {e}{dica}")
         return []
     out = []
     for b in cfg.get("bdrs", []):

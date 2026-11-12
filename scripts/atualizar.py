@@ -8,6 +8,22 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+class _Tee:
+    """Duplica a saída em site/data/log.txt para diagnóstico."""
+    def __init__(self, *fs):
+        self.fs = fs
+    def write(self, x):
+        for f in self.fs:
+            f.write(x); f.flush()
+    def flush(self):
+        for f in self.fs:
+            f.flush()
+
+
+_RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.makedirs(os.path.join(_RAIZ, "site", "data"), exist_ok=True)
+sys.stdout = _Tee(sys.__stdout__, open(os.path.join(_RAIZ, "site", "data", "log.txt"), "w", encoding="utf-8"))
+
 import b3  # noqa: E402
 import sec  # noqa: E402
 

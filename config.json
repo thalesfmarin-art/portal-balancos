@@ -1,5 +1,7 @@
 {
   "_comentario": "Edite este arquivo para mudar quais empresas aparecem no portal.",
+  "universo_b3": "todas",
+  "_universo_b3_ajuda": "'todas' = todas as ações negociadas na B3 no último pregão. Para voltar a usar só índices, troque por 'indices'.",
   "indices_b3": ["IBXX"],
   "_indices_b3_ajuda": "IBXX = IBrX-100 (as ~100 ações mais negociadas). Para ampliar, adicione 'SMLL' (Small Caps) ou 'IBRA' (Índice Brasil Amplo, ~170 ações).",
   "tickers_b3_extras": [],

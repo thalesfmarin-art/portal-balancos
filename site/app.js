@@ -150,7 +150,7 @@ function telaInicio() {
   const cont = (v) => L.filter((e) => e.veredito === v).length;
   $app.innerHTML = `
     <h1>Resultados das empresas</h1>
-    <p class="sub">${L.filter((e) => e.mercado === "B3").length} empresas mais negociadas da B3 e ${L.filter((e) => e.mercado === "BDR").length} BDRs ligadas a inteligência artificial. Último trimestre de cada uma disponível nas bases oficiais (a da CVM é atualizada semanalmente).</p>
+    <p class="sub">${L.filter((e) => e.mercado === "B3").length} empresas listadas na B3 e ${L.filter((e) => e.mercado === "BDR").length} BDRs ligadas a inteligência artificial. Último trimestre de cada uma disponível nas bases oficiais (a da CVM é atualizada semanalmente).</p>
     <div class="placar">
       <div><b class="pos">${cont("Bom")}</b><span>resultados bons</span></div>
       <div><b style="color:var(--misto)">${cont("Misto")}</b><span>resultados mistos</span></div>

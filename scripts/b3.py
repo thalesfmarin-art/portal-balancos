@@ -58,9 +58,47 @@ def carteira_indice(indice: str) -> list[dict]:
     return out
 
 
+def acoes_listadas() -> list[dict]:
+    """Todas as ações negociadas no lote padrão no último pregão (arquivo oficial COTAHIST da B3).
+    Exclui BDRs, fundos (FII/ETF), opções e o mercado fracionário."""
+    import datetime as _dt
+    for i in range(0, 8):
+        d = HOJE - _dt.timedelta(days=i)
+        if d.weekday() >= 5:
+            continue
+        url = f"https://bvmf.bmfbovespa.com.br/InstDados/SerHist/COTAHIST_D{d:%d%m%Y}.ZIP"
+        try:
+            z = zipfile.ZipFile(io.BytesIO(baixar(url, timeout=60, tentativas=2)))
+        except Exception:  # noqa: BLE001
+            continue
+        out = []
+        with z.open(z.namelist()[0]) as f:
+            for linha in io.TextIOWrapper(f, encoding="latin-1"):
+                if not linha.startswith("01") or linha[24:27] != "010" or linha[10:12] != "02":
+                    continue
+                tk = linha[12:24].strip()
+                if not re.fullmatch(r"[A-Z0-9]{4}(3|4|5|6|7|8|11)", tk):
+                    continue
+                try:
+                    volume = int(linha[170:188]) / 100.0
+                except ValueError:
+                    volume = 0.0
+                out.append({"ticker": tk, "nome": linha[27:39].strip(), "peso": volume})
+        if out:
+            print(f"[B3] pregão de {d:%d/%m/%Y}: {len(out)} ações negociadas")
+            return out
+    return []
+
+
 def universo(cfg: dict) -> list[dict]:
     lista: dict[str, dict] = {}
-    for ind in cfg.get("indices_b3", ["IBXX"]):
+    if cfg.get("universo_b3") == "todas":
+        try:
+            for it in acoes_listadas():
+                lista[it["ticker"]] = it
+        except Exception as e:  # noqa: BLE001
+            print(f"[B3] não consegui ler a lista completa da B3: {e}")
+    for ind in ([] if lista else cfg.get("indices_b3", ["IBXX"])):
         try:
             itens = carteira_indice(ind)
             print(f"[B3] índice {ind}: {len(itens)} ações")

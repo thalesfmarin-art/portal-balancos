@@ -28,19 +28,81 @@ function badge(v) {
   return `<span class="badge v-${k}">${esc(v || "—")}</span>`;
 }
 
+// ------------------------------------------------------------------ acesso com senha
+// Os dados são publicados criptografados (AES-256-GCM). A chave vem da senha (PBKDF2-SHA256).
+let CHAVE = null, CFG = null;
+const SAL = "portal-balancos/thalesfmarin-art/v1";
+const LS = "portal-chave";
+const b64e = (u8) => btoa(String.fromCharCode(...u8));
+const b64d = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const guardar = { get: (k) => { try { return sessionStorage.getItem(k) || localStorage.getItem(k); } catch { return null; } },
+  set: (k, v, lembrar) => { try { (lembrar ? localStorage : sessionStorage).setItem(k, v); } catch {} },
+  limpar: (k) => { try { sessionStorage.removeItem(k); localStorage.removeItem(k); } catch {} } };
+
+async function derivar(senha) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(senha), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: new TextEncoder().encode(SAL), iterations: CFG.iter, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, true, ["decrypt"]);
+}
+async function lerDados(caminho, chave = CHAVE) {
+  const r = await fetch(`data/${caminho}.bin?v=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(caminho === "index" ? "Dados ainda não gerados" : "Empresa não encontrada");
+  const buf = new Uint8Array(await r.arrayBuffer());
+  const txt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, chave, buf.slice(12));
+  return JSON.parse(new TextDecoder().decode(txt));
+}
+async function garantirAcesso() {
+  if (CHAVE) return true;
+  if (!CFG) CFG = await fetch(`data/chave.json?v=${Date.now()}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+  if (!CFG || !CFG.configurado) {
+    $app.innerHTML = `<div class="vazio">Portal protegido. A senha de acesso ainda não foi configurada.</div>`;
+    return false;
+  }
+  const salva = guardar.get(LS);
+  if (salva) {
+    try {
+      const k = await crypto.subtle.importKey("raw", b64d(salva), "AES-GCM", true, ["decrypt"]);
+      INDICE = await lerDados("index", k); CHAVE = k; posLogin(); return true;
+    } catch { guardar.limpar(LS); }
+  }
+  telaLogin();
+  return false;
+}
+function telaLogin(erro) {
+  document.querySelector(".abas").style.visibility = "hidden";
+  $app.innerHTML = `<form class="login" id="login">
+      <h1>Acesso restrito</h1>
+      <p class="sub">Digite a senha para ver o portal.</p>
+      <input type="password" id="senha" placeholder="Senha" autocomplete="current-password" autofocus required>
+      <label class="lembrar"><input type="checkbox" id="lembrar" checked> Lembrar neste dispositivo</label>
+      ${erro ? `<p class="neg">${esc(erro)}</p>` : ""}
+      <button type="submit" id="entrar">Entrar</button>
+    </form>`;
+  document.getElementById("login").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const btn = document.getElementById("entrar"); btn.disabled = true; btn.textContent = "Verificando…";
+    try {
+      const k = await derivar(document.getElementById("senha").value);
+      INDICE = await lerDados("index", k); CHAVE = k;
+      guardar.set(LS, b64e(new Uint8Array(await crypto.subtle.exportKey("raw", k))), document.getElementById("lembrar").checked);
+      posLogin(); rota();
+    } catch { telaLogin("Senha incorreta."); }
+  });
+}
+function posLogin() {
+  document.querySelector(".abas").style.visibility = "";
+  document.getElementById("atualizado").innerHTML = `Atualizado em ${fmtData(INDICE.atualizado_em.slice(0, 10))} às ${INDICE.atualizado_em.slice(11)} · <a href="#" id="sair">Sair</a>`;
+  document.getElementById("sair").addEventListener("click", (e) => { e.preventDefault(); guardar.limpar(LS); location.hash = ""; location.reload(); });
+}
+
 async function carregarIndice() {
   if (INDICE) return INDICE;
-  const r = await fetch("data/index.json", { cache: "no-store" });
-  if (!r.ok) throw new Error("Dados ainda não gerados");
-  INDICE = await r.json();
-  document.getElementById("atualizado").textContent = `Atualizado em ${fmtData(INDICE.atualizado_em.slice(0, 10))} às ${INDICE.atualizado_em.slice(11)}`;
+  INDICE = await lerDados("index");
   return INDICE;
 }
 async function carregarEmpresa(id) {
   if (cacheEmp[id]) return cacheEmp[id];
-  const r = await fetch(`data/empresas/${encodeURIComponent(id)}.json`, { cache: "no-store" });
-  if (!r.ok) throw new Error("Empresa não encontrada");
-  return (cacheEmp[id] = await r.json());
+  return (cacheEmp[id] = await lerDados(`empresas/${encodeURIComponent(id)}`));
 }
 
 function marcarAba(aba) {
@@ -51,6 +113,7 @@ async function rota() {
   graficos.forEach((g) => g.destroy()); graficos = [];
   const h = location.hash.replace(/^#\/?/, "");
   try {
+    if (!(await garantirAcesso())) return;
     await carregarIndice();
     if (h.startsWith("empresa/")) { marcarAba(""); await telaEmpresa(decodeURIComponent(h.slice(8))); }
     else if (h === "calendario") { marcarAba("calendario"); telaCalendario(); }

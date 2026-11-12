@@ -40,6 +40,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           PYTHONUNBUFFERED: "1"
+      - name: Proteger os dados com senha
+        run: python scripts/criptografar.py
+        env:
+          SITE_PASSWORD: ${{ secrets.SITE_PASSWORD }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

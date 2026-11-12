@@ -260,13 +260,12 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
     ebit = (_achar(c, "DRE", r"antes do resultado financeiro", 2) or [None])[0]
     financeira = ebit is None
     bruto = (_achar(c, "DRE", r"resultado bruto", 2) or [None])[0]
-    lucro = _achar(c, "DRE", r"(lucro|prejuizo).*(periodo|exercicio)", 2,
-                   r"continuad|antes|por acao")
-    lucro = lucro[-1] if lucro else None
-    lucro_contr = None
-    if lucro:
-        filhos = [k for k in _achar(c, "DRE", r"controlador") if k.startswith(lucro + ".")]
-        lucro_contr = filhos[0] if filhos else None
+    cands = _achar(c, "DRE", r"(lucro|prejuizo).*(periodo|exercicio)", 2, r"continuad|antes|por acao")
+    ordem = []
+    for k in reversed(cands):  # do mais "final" para o anterior
+        filhos = [f for f in _achar(c, "DRE", r"controlador", None, r"nao controlador") if f.startswith(k + ".")]
+        ordem += filhos[:1] + [k]
+    ordem += _achar(c, "DRE", r"(lucro|prejuizo).*continuad", 2, r"descontinuad")
     da = [k for k in _achar(c, "DFC", r"deprecia|amortiza|exaust") if k.split("|")[1].startswith("6.01")]
     # evita contar pai e filho
     da = [k for k in da if not any(o != k and o.startswith(k + ".") for o in da)]
@@ -280,7 +279,11 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
     caixa = _achar(c, "BPA", r"caixa e equivalentes|aplicacoes financeiras", 3)
     caixa = [k for k in caixa if k.split("|")[1].startswith("1.01.")]
 
-    lucro_s = tri(lucro_contr or lucro)
+    lucro_s = [None] * len(fins)
+    for k in ordem:  # usa a conta preferida e completa lacunas com as alternativas
+        for j, v in enumerate(tri(k)):
+            if lucro_s[j] is None and v is not None:
+                lucro_s[j] = v
     base = {
         "receita": tri(rec),
         "lucro_bruto": tri(bruto) if not financeira else [None] * len(fins),

@@ -226,6 +226,12 @@ def aplicar(empresas: list[dict]) -> None:
             print(f"[Fund] erro em {e['ticker']}: {ex}")
             e["fund"] = None
     print(f"[Fund] valuation calculado para {n}/{len(empresas)} empresas")
+    for t in ("VALE3", "PETR4"):
+        e = next((x for x in empresas if x["ticker"] == t), None)
+        if e:
+            mi = lambda s: [None if v is None else round(v / 1000) for v in (s or [])[-6:]]  # noqa: E731
+            print(f"[Debug] {t} trimestres {[q['l'] for q in e['trimestres'][-6:]]}")
+            print(f"[Debug] {t} lucro (R$ mi) {mi(e['base'].get('lucro'))} | dividendos {mi(e['base'].get('dividendos'))}")
     for t in ("PETR4", "ITUB4", "WEGE3", "VALE3", "NVDC34", "MSFT34"):
         e = next((x for x in empresas if x["ticker"] == t), None)
         if e and e.get("fund"):

@@ -446,11 +446,11 @@ function telaAnalise() {
     <div id="tab-an"></div>
     <details class="painel metodo"><summary><b>Como a nota é calculada</b></summary>
       <ul>
-        <li><b>Valuation:</b> P/L, EV/EBITDA, P/VP e FCF yield (geração de caixa livre ÷ valor de mercado). Quanto mais barata em relação ao grupo, maior a nota. Empresa com prejuízo fica com o pior P/L.</li>
+        <li><b>Valuation:</b> P/L, EV/EBITDA, P/VP e FCF yield (geração de caixa livre ÷ valor de mercado). Quanto mais barata em relação ao grupo, maior a nota. Empresa com prejuízo fica com o pior P/L. O lucro usado é o contábil: baixas contábeis pontuais (impairments) podem distorcer o P/L.</li>
         <li><b>Qualidade:</b> ROE, margem líquida dos últimos 12 meses e estabilidade da margem nos últimos 8 trimestres.</li>
         <li><b>Crescimento:</b> receita e lucro dos últimos 12 meses contra os 12 meses anteriores, e crescimento anual da receita em 2 anos.</li>
         <li><b>Saúde financeira:</b> dívida líquida/EBITDA (não se aplica a bancos e seguradoras).</li>
-        <li><b>Dividendos:</b> proventos pagos nos últimos 12 meses (dividendos + JCP) ÷ valor de mercado.</li>
+        <li><b>Dividendos:</b> proventos efetivamente pagos em caixa nos últimos 12 meses (dividendos + JCP, pelo fluxo de caixa) ÷ valor de mercado. Inclui pagamentos extraordinários, então pode ficar acima do yield recorrente.</li>
         <li>Cada indicador vira um percentil dentro do grupo ("melhor que X% do grupo"). A nota é a média ponderada dos pilares. <b>Atrativa</b> ≥ 60, <b>Neutra</b> de 40 a 60, <b>Pouco atrativa</b> &lt; 40. Empresas com prejuízo em 12 meses ou dívida acima de 4x o EBITDA não passam de Neutra.</li>
         <li>Preços: fechamento oficial da B3 (BDRs: cotação da ação nos EUA). Balanços: CVM e SEC. Valor de mercado = ações em circulação × preço de cada classe.</li>
       </ul>

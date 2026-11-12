@@ -313,7 +313,6 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
     divs = [k for k in _achar(c, "DFC", r"dividend|juros sobre (o )?capital|jscp")
             if k.split("|")[1].startswith("6.03")]
     divs = [k for k in divs if not any(o != k and o.startswith(k + ".") for o in divs)]
-    c.debug_divs = [f"{k.split('|')[1]} {c.nomes[k]}" for k in divs]
     pl = _achar(c, "BPP", r"patrimonio liquido", 2)
     pl = pl[-1] if pl else None
     divida = _achar(c, "BPP", r"emprestimos e financiamentos", 3)
@@ -415,8 +414,6 @@ def _montar_empresa(cnpj, g, c: Contas, entregas, info, cfg, cache_ia):
         if len(g["tickers"]) > 1 else g["tickers"][0]
     rot = [rotulo_trimestre(f) for f in fins]
     base, financeira = series_base(c, fins)
-    if ticker[:4] in ("VALE", "PETR"):
-        print(f"[Debug] {ticker} contas de dividendos: {getattr(c, 'debug_divs', [])}")
     ind = indicadores(base, financeira)
     auto = resumo_automatico([r[1] for r in rot], base, ind, financeira, "BRL")
     nome = (g["nome"] or info.get("razao", "")).title() if g["nome"] else info.get("razao", ticker)

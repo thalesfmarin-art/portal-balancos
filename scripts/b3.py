@@ -225,10 +225,10 @@ def _absorver_capital(acoes: dict, cc: pd.DataFrame, cnpjs: set[str]):
     c_cnpj = _col(cc, "cnpj")
     c_ref = _col(cc, "data_referencia") or _col(cc, "dt_refer")
     c_ver = _col(cc, "versao")
-    c_on = _col(cc, "ordinaria", "integralizado") or _col(cc, "ordinaria", "capital")
-    c_pn = _col(cc, "preferencia", "integralizado") or _col(cc, "preferencia", "capital")
-    c_ton = _col(cc, "ordinaria", "tesouraria")
-    c_tpn = _col(cc, "preferencia", "tesouraria")
+    c_on = _col(cc, "ordin", "integr") or _col(cc, "ordin", "cap")
+    c_pn = _col(cc, "pref", "integr") or _col(cc, "pref", "cap")
+    c_ton = _col(cc, "ordin", "tesour")
+    c_tpn = _col(cc, "pref", "tesour")
     if not (c_cnpj and c_ref and c_on):
         print("[CVM] não reconheci as colunas da composição do capital")
         return

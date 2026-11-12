@@ -136,7 +136,7 @@ function cartao(e) {
     </div>
     <div class="card-nums">
       <div><small>${e.financeira ? "Receitas" : "Receita"} ${esc(e.periodo || "")}</small><span class="num">${dinheiro(e.receita, e.moeda)}</span> <span class="num ${cls(e.receita_yoy)}">${pct(e.receita_yoy)}</span></div>
-      <div><small>Lucro líquido</small><span class="num">${dinheiro(e.lucro, e.moeda)}</span> <span class="num ${cls(e.lucro_yoy ?? (e.lucro >= 0 ? 1 : -1))}">${lucroTexto(e)}</span></div>
+      <div><small>Lucro líquido contábil</small><span class="num">${dinheiro(e.lucro, e.moeda)}</span> <span class="num ${cls(e.lucro_yoy ?? (e.lucro >= 0 ? 1 : -1))}">${lucroTexto(e)}</span></div>
     </div>
     ${motivos ? `<ul class="card-why">${motivos}</ul>` : ""}
     <div class="card-foot"><span>Divulgado ${fmtData(e.divulgado_em)}</span><span>Próximo: ${e.proximo ? fmtData(e.proximo.data) : "—"}</span></div>
@@ -195,7 +195,7 @@ async function telaEmpresa(id) {
   const kpis = [
     kpi(e.financeira ? "Receitas" : "Receita", dinheiro(g(e.base.receita, i), e.moeda), vv(g(e.base.receita, i), g(e.base.receita, a)), `${pct(vv(g(e.base.receita, i), g(e.base.receita, a)))} no ano`),
     e.financeira ? "" : kpi("EBITDA", dinheiro(g(e.ind.ebitda, i), e.moeda), vv(g(e.ind.ebitda, i), g(e.ind.ebitda, a)), `${pct(vv(g(e.ind.ebitda, i), g(e.ind.ebitda, a)))} no ano`),
-    kpi("Lucro líquido", dinheiro(g(e.base.lucro, i), e.moeda), vv(g(e.base.lucro, i), g(e.base.lucro, a)), `${pct(vv(g(e.base.lucro, i), g(e.base.lucro, a)))} no ano`),
+    kpi("Lucro líquido contábil", dinheiro(g(e.base.lucro, i), e.moeda), vv(g(e.base.lucro, i), g(e.base.lucro, a)), `${pct(vv(g(e.base.lucro, i), g(e.base.lucro, a)))} no ano`),
     e.financeira ? "" : kpi("Margem EBITDA", pctSimples(g(e.ind.margem_ebitda, i))),
     kpi("Margem líquida", pctSimples(g(e.ind.margem_liquida, i))),
     kpi("ROE (12 meses)", pctSimples(g(e.ind.roe, i))),
@@ -240,7 +240,7 @@ async function telaEmpresa(id) {
       <div class="chips" id="f-per">${[["trimestral", "Trimestral"], ["anual", "Anual"]].map(([k, t]) => `<button data-v="${k}" class="${estEmp.periodo === k ? "on" : ""}">${t}</button>`).join("")}</div>
     </div>
     <div id="tabela"></div>
-    <div class="unid">Valores em ${moedaSimb(e.moeda)} milhões. Fonte: ${esc(e.fonte)}. ${e.mercado === "B3" ? "Demonstrações consolidadas quando disponíveis; trimestres calculados a partir dos acumulados do ano quando necessário." : "4º trimestre calculado como ano fiscal menos os três primeiros trimestres. Trimestres rotulados pelo calendário."}</div>`;
+    <div class="unid">Valores em ${moedaSimb(e.moeda)} milhões. Fonte: ${esc(e.fonte)}. ${e.mercado === "B3" ? "Demonstrações consolidadas quando disponíveis. O lucro mostrado é o contábil atribuído aos controladores; os números recorrentes ou ajustados que a imprensa destaca podem ser diferentes; trimestres calculados a partir dos acumulados do ano quando necessário." : "4º trimestre calculado como ano fiscal menos os três primeiros trimestres. Trimestres rotulados pelo calendário."}</div>`;
 
   const desenharTabela = () => {
     if (!e.demonstracoes[estEmp.dem]?.trimestral?.length) estEmp.dem = "DRE";

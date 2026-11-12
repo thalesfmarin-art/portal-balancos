@@ -129,6 +129,7 @@ def _base(c: Contas, fins):
         "pl": sal("Patrimônio líquido"),
         "divida": soma(sal("Dívida de curto prazo"), sal("Dívida de longo prazo")),
         "caixa": soma(sal("Caixa e equivalentes"), sal("Aplicações financeiras de curto prazo")),
+        "dividendos": tri("Dividendos pagos"),
     }
 
 
@@ -152,6 +153,24 @@ def _demonstracoes(c: Contas, fins, anuais):
             la.append({"c": str(i), "n": nome, "nv": 0, "v": va, "u": un})
         out[dem] = {"trimestral": lt, "anual": la}
     return out
+
+
+def _acoes(facts: dict):
+    """Ações diluídas (média ponderada) do último trimestre reportado."""
+    regs = facts.get("facts", {}).get("us-gaap", {}).get("WeightedAverageNumberOfDilutedSharesOutstanding", {}) \
+        .get("units", {}).get("shares", [])
+    melhor = None
+    for r in regs:
+        ini, fim = para_data(r.get("start")), para_data(r.get("end"))
+        if ini and fim and meses(ini, fim) == 3 and (melhor is None or fim > melhor[0]):
+            melhor = (fim, float(r["val"]))
+    if not melhor:
+        regs = facts.get("facts", {}).get("dei", {}).get("EntityCommonStockSharesOutstanding", {}) \
+            .get("units", {}).get("shares", [])
+        if regs:
+            fim = max(para_data(r["end"]) for r in regs)
+            melhor = (fim, sum(float(r["val"]) for r in regs if para_data(r["end"]) == fim))
+    return {"total": melhor[1], "ref": melhor[0].isoformat()} if melhor else None
 
 
 def _filings(cik: int):
@@ -257,6 +276,7 @@ def _montar(b, cik, facts, filings, cfg, cache_ia):
         "link": link,
         "pendente": pendente.isoformat() if pendente else None,
         "fonte": "SEC EDGAR (10-Q/10-K, XBRL)",
+        "acoes": _acoes(facts),
         "proximo": {"data": est.isoformat(), "periodo": rotulo_trimestre(fim_prox)[1],
                     "tipo": "Resultado trimestral", "base": base_est, "atrasado": est < HOJE},
     }

@@ -136,3 +136,26 @@ td .cod { color: var(--ink3); font-size: 11px; margin-right: 6px; }
 .login button { height: 40px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 .login button:disabled { opacity: .6; cursor: wait; }
 .login p.neg { margin: 0; }
+
+/* análise fundamentalista */
+.pesos { margin-bottom: 16px; }
+.pesos summary, .metodo summary { cursor: pointer; }
+.pesos-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px 20px; margin: 14px 0 8px; }
+.pesos-grade label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink2); }
+.pesos-grade label b { color: var(--ink); }
+.pesos-grade input { width: 100%; accent-color: var(--accent); }
+button.link { background: none; border: 0; color: var(--accent); padding: 0; font: inherit; cursor: pointer; }
+.metodo { margin-top: 16px; }
+.metodo li { color: var(--ink2); }
+.tab-an tbody tr { cursor: pointer; }
+.tab-an tbody tr:hover td { background: var(--bg); }
+.tab-an td:first-child { min-width: 200px; }
+.nota-mini { display: inline-block; min-width: 34px; text-align: center; border-radius: 6px; padding: 1px 6px; font-size: 12px; font-weight: 600;
+  background: color-mix(in srgb, var(--ruim) calc((100 - var(--p)) * 1%), var(--bom)); color: #fff; }
+.pilar { display: grid; grid-template-columns: 130px 1fr 34px; gap: 10px; align-items: center; margin: 6px 0; font-size: 13px; }
+.pilar .barra { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+.pilar .barra i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.ind-tab { font-size: 13px; }
+.ind-tab td { padding: 5px 6px; text-align: left; position: static; min-width: 0; }
+.ind-tab td.num { text-align: right; }
+.meta { color: var(--ink3); }

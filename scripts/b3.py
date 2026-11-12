@@ -166,6 +166,7 @@ def carregar_demonstracoes(cnpjs: set[str], anos: int):
     contas: dict[str, Contas] = {c: Contas() for c in cnpjs}
     entregas: dict[str, dict] = {c: {} for c in cnpjs}   # cnpj -> DT_REFER -> {receb, link, tipo}
     usa_con: dict[tuple, bool] = {}
+    acoes: dict[str, dict] = {}
     arquivos = [("ITR", a) for a in range(HOJE.year, HOJE.year - anos, -1)] + \
                [("DFP", a) for a in range(HOJE.year, HOJE.year - anos - 1, -1)]
     for tipo, ano in arquivos:
@@ -179,6 +180,9 @@ def carregar_demonstracoes(cnpjs: set[str], anos: int):
             for r in cab.itertuples(index=False):
                 d = entregas[r.CNPJ_CIA].setdefault(r.DT_REFER, {"tipo": tipo, "versoes": []})
                 d["versoes"].append((int(r.VERSAO), r.DT_RECEB, getattr(r, "LINK_DOC", "")))
+        cc = ler_csv(z, "composicao_capital")
+        if cc is not None:
+            _absorver_capital(acoes, cc, cnpjs)
         for dem in ("BPA", "BPP", "DRE", "DFC_MI", "DFC_MD"):
             for escopo in ("con", "ind"):
                 df = ler_csv(z, f"_{dem}_{escopo}_")
@@ -205,7 +209,40 @@ def carregar_demonstracoes(cnpjs: set[str], anos: int):
             info["receb"] = vs[0][1][:10] if vs else None
             info["link"] = vs[-1][2] if vs else ""
             del info["versoes"]
-    return contas, entregas
+    print(f"[CVM] composição do capital encontrada para {len(acoes)} empresas")
+    return contas, entregas, acoes
+
+
+_COLS_LOGADAS = False
+
+
+def _absorver_capital(acoes: dict, cc: pd.DataFrame, cnpjs: set[str]):
+    """Quantidade de ações ON e PN em circulação (capital integralizado menos tesouraria)."""
+    global _COLS_LOGADAS
+    if not _COLS_LOGADAS:
+        print(f"[CVM] colunas da composição do capital: {list(cc.columns)}")
+        _COLS_LOGADAS = True
+    c_cnpj = _col(cc, "cnpj")
+    c_ref = _col(cc, "data_referencia") or _col(cc, "dt_refer")
+    c_ver = _col(cc, "versao")
+    c_on = _col(cc, "ordinaria", "integralizado") or _col(cc, "ordinaria", "capital")
+    c_pn = _col(cc, "preferencia", "integralizado") or _col(cc, "preferencia", "capital")
+    c_ton = _col(cc, "ordinaria", "tesouraria")
+    c_tpn = _col(cc, "preferencia", "tesouraria")
+    if not (c_cnpj and c_ref and c_on):
+        print("[CVM] não reconheci as colunas da composição do capital")
+        return
+    num = lambda v: float(str(v).replace(",", ".")) if v not in (None, "") and str(v) != "nan" else 0.0  # noqa: E731
+    for r in cc[cc[c_cnpj].isin(cnpjs)].to_dict("records"):
+        ref = str(r.get(c_ref))[:10]
+        ver = int(num(r.get(c_ver))) if c_ver else 0
+        atual = acoes.get(r[c_cnpj])
+        if atual and (atual["ref"], atual["ver"]) >= (ref, ver):
+            continue
+        on = num(r.get(c_on)) - (num(r.get(c_ton)) if c_ton else 0)
+        pn = (num(r.get(c_pn)) if c_pn else 0) - (num(r.get(c_tpn)) if c_tpn else 0)
+        if on + pn > 0:
+            acoes[r[c_cnpj]] = {"on": on, "pn": max(pn, 0), "ref": ref, "ver": ver}
 
 
 def _absorver(c: Contas, dem: str, g: pd.DataFrame):
@@ -273,6 +310,9 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
     capex = [k for k in _achar(c, "DFC", r"(aquisi|compra|adic|investimento).*(imobilizado|intangivel)")
              if k.split("|")[1].startswith("6.02")]
     capex = [k for k in capex if not any(o != k and o.startswith(k + ".") for o in capex)]
+    divs = [k for k in _achar(c, "DFC", r"dividend|juros sobre (o )?capital|jscp")
+            if k.split("|")[1].startswith("6.03")]
+    divs = [k for k in divs if not any(o != k and o.startswith(k + ".") for o in divs)]
     pl = _achar(c, "BPP", r"patrimonio liquido", 2)
     pl = pl[-1] if pl else None
     divida = _achar(c, "BPP", r"emprestimos e financiamentos", 3)
@@ -296,6 +336,7 @@ def series_base(c: Contas, fins: list[dt.date]) -> tuple[dict, bool]:
         "pl": sal(pl),
         "divida": soma([sal(k) for k in divida]) if (divida and not financeira) else [None] * len(fins),
         "caixa": soma([sal(k) for k in caixa]) if caixa else [None] * len(fins),
+        "dividendos": [None if v is None else abs(v) for v in soma([tri(k) for k in divs])] if divs else [None] * len(fins),
     }
     return base, financeira
 
@@ -341,12 +382,14 @@ def processar(cfg: dict, cache_ia: dict) -> list[dict]:
         g["tickers"].append(a["ticker"])
         g["peso"] += a["peso"]
     print(f"[B3] {len(grupos)} empresas no universo")
-    contas, entregas = carregar_demonstracoes(set(grupos), cfg.get("anos_historico", 3))
+    contas, entregas, acoes = carregar_demonstracoes(set(grupos), cfg.get("anos_historico", 3))
 
     empresas = []
     for cnpj, g in grupos.items():
         try:
             emp = _montar_empresa(cnpj, g, contas[cnpj], entregas[cnpj], info.get(cnpj, {}), cfg, cache_ia)
+            if emp:
+                emp["acoes"] = acoes.get(cnpj)
             if emp:
                 empresas.append(emp)
         except Exception as e:  # noqa: BLE001

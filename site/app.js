@@ -117,6 +117,7 @@ async function rota() {
     await carregarIndice();
     if (h.startsWith("empresa/")) { marcarAba(""); await telaEmpresa(decodeURIComponent(h.slice(8))); }
     else if (h === "calendario") { marcarAba("calendario"); telaCalendario(); }
+    else if (h === "analise") { marcarAba("analise"); telaAnalise(); }
     else { marcarAba("inicio"); telaInicio(); }
   } catch (e) {
     $app.innerHTML = `<div class="vazio">${esc(e.message)}. Se o portal acabou de ser criado, aguarde a primeira atualização terminar.</div>`;
@@ -293,6 +294,7 @@ async function telaEmpresa(id) {
       </div>
     </div>
     <div class="kpis">${kpis}</div>
+    ${painelFundamentos(e)}
     <div class="graficos">
       <div class="painel"><h3>${e.financeira ? "Receitas" : "Receita"} e lucro por trimestre (${moedaSimb(e.moeda)} milhões)</h3><canvas id="g1"></canvas></div>
       <div class="painel"><h3>${e.financeira ? "Margem líquida e ROE" : "Margens"}</h3><canvas id="g2"></canvas></div>
@@ -343,4 +345,170 @@ function desenharGraficos(e) {
     : [{ label: "Margem bruta", data: e.ind.margem_bruta, borderColor: cor("--ink3") }, { label: "Margem EBITDA", data: e.ind.margem_ebitda, borderColor: cor("--accent") }, { label: "Margem líquida", data: e.ind.margem_liquida, borderColor: cor("--bom") }];
   ds.forEach((d) => { d.tension = 0.25; d.spanGaps = true; d.pointRadius = 2; d.backgroundColor = d.borderColor; });
   graficos.push(new Chart(document.getElementById("g2"), { type: "line", data: { labels, datasets: ds.filter((d) => d.data?.some((v) => v != null)) }, options: opt(fmtPct) }));
+}
+
+// ------------------------------------------------------------------ análise fundamentalista
+// Cada indicador vira um percentil dentro do grupo (B3 não financeiras, B3 financeiras, BDRs).
+// O percentil é "melhor que X% do grupo"; pilar = média dos percentis; nota = média ponderada dos pilares.
+const PILARES = {
+  valuation: { nome: "Valuation", m: [["pl", -1, "P/L"], ["ev_ebitda", -1, "EV/EBITDA"], ["pvp", -1, "P/VP"], ["fcf_yield", 1, "FCF yield"]] },
+  qualidade: { nome: "Qualidade", m: [["roe", 1, "ROE"], ["margem_liquida", 1, "Margem líquida"], ["volatilidade_margem", -1, "Estabilidade da margem"]] },
+  crescimento: { nome: "Crescimento", m: [["cresc_receita_1a", 1, "Receita em 12 meses"], ["cresc_lucro_1a", 1, "Lucro em 12 meses"], ["cresc_receita_2a", 1, "Receita em 2 anos (ao ano)"]] },
+  saude: { nome: "Saúde financeira", m: [["div_ebitda", -1, "Dívida líquida/EBITDA"]] },
+  dividendos: { nome: "Dividendos", m: [["dy", 1, "Dividend yield"]] },
+};
+const PESOS_PADRAO = { valuation: 30, qualidade: 25, crescimento: 20, saude: 15, dividendos: 10 };
+const MULT = new Set(["pl", "ev_ebitda", "pvp", "div_ebitda"]);
+let PESOS = (() => { try { return { ...PESOS_PADRAO, ...JSON.parse(localStorage.getItem("portal-pesos") || "{}") }; } catch { return { ...PESOS_PADRAO }; } })();
+let NOTAS = null;
+const fmtMetr = (k, v) => v == null ? "—" : k === "volatilidade_margem" ? `${(v * 100).toFixed(1).replace(".", ",")} p.p.` : MULT.has(k) ? `${v.toFixed(1).replace(".", ",")}x` : pctSimples(v);
+const grupoDe = (e) => e.mercado === "BDR" ? "BDRs" : e.financeira ? "B3 – financeiras" : "B3 – demais setores";
+const CLASSES = { "Atrativa": "Bom", "Neutra": "Misto", "Pouco atrativa": "Ruim" };
+const badgeClasse = (c) => `<span class="badge v-${CLASSES[c] || "outro"}">${esc(c || "Sem dados")}</span>`;
+
+function calcularNotas() {
+  const L = INDICE.empresas.filter((e) => e.fund);
+  const grupos = {};
+  L.forEach((e) => (grupos[grupoDe(e)] ||= []).push(e));
+  const out = {};
+  for (const [g, lista] of Object.entries(grupos)) {
+    const perc = {};
+    lista.forEach((e) => (perc[e.id] = {}));
+    for (const p of Object.values(PILARES)) for (const [k, dir] of p.m) {
+      // P/L com prejuízo conta como o pior valuation do grupo
+      const ajust = lista.map((e) => [e, k === "pl" && e.fund.lucro_negativo ? Infinity : e.fund[k]]).filter(([, v]) => v != null);
+      if (ajust.length < 3) continue;
+      for (const [e, v] of ajust) {
+        let pior = 0, igual = 0;
+        for (const [, w] of ajust) { if (dir > 0 ? w < v : w > v) pior++; else if (w === v) igual++; }
+        perc[e.id][k] = Math.round(100 * (pior + (igual - 1) / 2) / (ajust.length - 1));
+      }
+    }
+    for (const e of lista) {
+      const pil = {};
+      for (const [pk, p] of Object.entries(PILARES)) {
+        const xs = p.m.map(([k]) => perc[e.id][k]).filter((x) => x != null);
+        pil[pk] = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+      }
+      let soma = 0, peso = 0;
+      for (const [pk, v] of Object.entries(pil)) if (v != null && PESOS[pk] > 0) { soma += v * PESOS[pk]; peso += PESOS[pk]; }
+      const usados = Object.values(pil).filter((v) => v != null).length;
+      const nota = peso && usados >= 2 ? soma / peso : null;
+      let classe = nota == null ? null : nota >= 60 ? "Atrativa" : nota >= 40 ? "Neutra" : "Pouco atrativa";
+      const travas = [];
+      if (e.fund.lucro_negativo) travas.push("prejuízo nos últimos 12 meses");
+      if (e.fund.div_ebitda != null && e.fund.div_ebitda > 4) travas.push("dívida líquida acima de 4x o EBITDA");
+      if (classe === "Atrativa" && travas.length) classe = "Neutra";
+      const mot = [];
+      for (const p of Object.values(PILARES)) for (const [k, , nome] of p.m) {
+        const pc = perc[e.id][k];
+        if (pc == null) continue;
+        const v = k === "pl" && e.fund.lucro_negativo ? null : e.fund[k];
+        const txt = k === "pl" && e.fund.lucro_negativo ? "P/L negativo (prejuízo)" : `${nome} de ${fmtMetr(k, v)}`;
+        if (pc >= 75) mot.push({ pos: true, pc, t: `${txt}: melhor que ${pc}% do grupo` });
+        if (pc <= 25) mot.push({ pos: false, pc, t: `${txt}: pior que ${100 - pc}% do grupo` });
+      }
+      out[e.id] = { nota, classe, pilares: pil, perc: perc[e.id], grupo: g, n: lista.length, travas,
+        fortes: mot.filter((m) => m.pos).sort((a, b) => b.pc - a.pc).slice(0, 4).map((m) => m.t),
+        fracos: mot.filter((m) => !m.pos).sort((a, b) => a.pc - b.pc).slice(0, 4).map((m) => m.t) };
+    }
+  }
+  return out;
+}
+function notas() { return NOTAS || (NOTAS = calcularNotas()); }
+
+const estAn = { mercado: "todos", classe: "todas", busca: "", ordem: "nota" };
+function telaAnalise() {
+  const N = notas();
+  const L = INDICE.empresas.filter((e) => e.fund && (estAn.mercado === "todos" || e.mercado === estAn.mercado));
+  const cont = (c) => L.filter((e) => N[e.id]?.classe === c).length;
+  $app.innerHTML = `
+    <h1>Análise fundamentalista</h1>
+    <p class="sub">Cada empresa recebe uma nota de 0 a 100 comparando seus indicadores com os do próprio grupo (B3 – demais setores, B3 – financeiras e BDRs). <b>Classificação automática pelos critérios do modelo; não é recomendação de compra ou venda.</b></p>
+    <div class="placar">
+      <div><b class="pos">${cont("Atrativa")}</b><span>atrativas pelos critérios</span></div>
+      <div><b style="color:var(--misto)">${cont("Neutra")}</b><span>neutras</span></div>
+      <div><b class="neg">${cont("Pouco atrativa")}</b><span>pouco atrativas</span></div>
+      <div><b>${L.length}</b><span>empresas analisadas</span></div>
+    </div>
+    <details class="painel pesos" ${localStorage.getItem("portal-pesos") ? "open" : ""}>
+      <summary><b>Pesos dos critérios</b> <span class="meta">(ajuste ao seu estilo: valor, qualidade, crescimento, dividendos…)</span></summary>
+      <div class="pesos-grade">${Object.entries(PILARES).map(([k, p]) => `
+        <label>${p.nome} <b id="pv-${k}">${PESOS[k]}</b><input type="range" min="0" max="50" step="5" value="${PESOS[k]}" data-k="${k}"></label>`).join("")}
+      </div>
+      <button class="link" id="pesos-reset">Restaurar pesos padrão</button>
+    </details>
+    <div class="filtros">
+      <input id="busca-an" type="search" placeholder="Buscar ticker ou empresa…" value="${esc(estAn.busca)}">
+      <div class="chips" id="fa-mercado">${[["todos", "Todos"], ["B3", "B3"], ["BDR", "BDRs IA"]].map(([k, t]) => `<button data-v="${k}" class="${estAn.mercado === k ? "on" : ""}">${t}</button>`).join("")}</div>
+      <div class="chips" id="fa-classe">${[["todas", "Todas"], ["Atrativa", "Atrativas"], ["Neutra", "Neutras"], ["Pouco atrativa", "Pouco atrativas"]].map(([k, t]) => `<button data-v="${k}" class="${estAn.classe === k ? "on" : ""}">${t}</button>`).join("")}</div>
+    </div>
+    <div id="tab-an"></div>
+    <details class="painel metodo"><summary><b>Como a nota é calculada</b></summary>
+      <ul>
+        <li><b>Valuation:</b> P/L, EV/EBITDA, P/VP e FCF yield (geração de caixa livre ÷ valor de mercado). Quanto mais barata em relação ao grupo, maior a nota. Empresa com prejuízo fica com o pior P/L.</li>
+        <li><b>Qualidade:</b> ROE, margem líquida dos últimos 12 meses e estabilidade da margem nos últimos 8 trimestres.</li>
+        <li><b>Crescimento:</b> receita e lucro dos últimos 12 meses contra os 12 meses anteriores, e crescimento anual da receita em 2 anos.</li>
+        <li><b>Saúde financeira:</b> dívida líquida/EBITDA (não se aplica a bancos e seguradoras).</li>
+        <li><b>Dividendos:</b> proventos pagos nos últimos 12 meses (dividendos + JCP) ÷ valor de mercado.</li>
+        <li>Cada indicador vira um percentil dentro do grupo ("melhor que X% do grupo"). A nota é a média ponderada dos pilares. <b>Atrativa</b> ≥ 60, <b>Neutra</b> de 40 a 60, <b>Pouco atrativa</b> &lt; 40. Empresas com prejuízo em 12 meses ou dívida acima de 4x o EBITDA não passam de Neutra.</li>
+        <li>Preços: fechamento oficial da B3 (BDRs: cotação da ação nos EUA). Balanços: CVM e SEC. Valor de mercado = ações em circulação × preço de cada classe.</li>
+      </ul>
+    </details>`;
+  const pct0 = (v) => v == null ? `<span class="meta">—</span>` : `<span class="nota-mini" style="--p:${Math.round(v)}">${Math.round(v)}</span>`;
+  const desenhar = () => {
+    const b = estAn.busca.trim().toLowerCase();
+    const l = L.filter((e) => (estAn.classe === "todas" || N[e.id]?.classe === estAn.classe) && (!b || e.ticker.toLowerCase().includes(b) || (e.nome || "").toLowerCase().includes(b)))
+      .sort((a, c) => (N[c.id]?.nota ?? -1) - (N[a.id]?.nota ?? -1));
+    document.getElementById("tab-an").innerHTML = l.length ? `<div class="tabela-wrap"><table class="tab-an">
+      <thead><tr><th>Empresa</th><th>Classificação</th><th>Nota</th>${Object.values(PILARES).map((p) => `<th>${p.nome}</th>`).join("")}
+        <th>P/L</th><th>EV/EBITDA</th><th>P/VP</th><th>DY</th><th>ROE</th><th>Dív./EBITDA</th><th>Receita 12m</th></tr></thead>
+      <tbody>${l.map((e) => { const n = N[e.id] || {}, f = e.fund; return `<tr data-id="${esc(e.id)}">
+        <td><b>${esc(e.ticker)}</b> <span class="meta">${esc(e.nome)}</span></td>
+        <td>${badgeClasse(n.classe)}</td><td class="num"><b>${n.nota == null ? "—" : Math.round(n.nota)}</b></td>
+        ${Object.keys(PILARES).map((k) => `<td>${pct0(n.pilares?.[k])}</td>`).join("")}
+        <td class="num">${f.lucro_negativo ? `<span class="neg">neg.</span>` : fmtMetr("pl", f.pl)}</td><td class="num">${fmtMetr("ev_ebitda", f.ev_ebitda)}</td>
+        <td class="num">${fmtMetr("pvp", f.pvp)}</td><td class="num">${fmtMetr("dy", f.dy)}</td><td class="num">${fmtMetr("roe", f.roe)}</td>
+        <td class="num">${fmtMetr("div_ebitda", f.div_ebitda)}</td><td class="num ${cls(f.cresc_receita_1a)}">${pct(f.cresc_receita_1a)}</td></tr>`; }).join("")}</tbody>
+    </table></div>` : `<div class="vazio">Nenhuma empresa com esses filtros.</div>`;
+    document.querySelectorAll(".tab-an tbody tr").forEach((tr) => tr.addEventListener("click", () => { location.hash = `#/empresa/${encodeURIComponent(tr.dataset.id)}`; }));
+  };
+  desenhar();
+  document.getElementById("busca-an").addEventListener("input", (e) => { estAn.busca = e.target.value; desenhar(); });
+  document.getElementById("fa-mercado").addEventListener("click", (e) => { const v = e.target.dataset.v; if (v) { estAn.mercado = v; telaAnalise(); } });
+  document.getElementById("fa-classe").addEventListener("click", (e) => { const v = e.target.dataset.v; if (v) { estAn.classe = v; telaAnalise(); } });
+  document.querySelectorAll(".pesos input").forEach((inp) => {
+    inp.addEventListener("input", () => { document.getElementById(`pv-${inp.dataset.k}`).textContent = inp.value; });
+    inp.addEventListener("change", () => { PESOS[inp.dataset.k] = +inp.value; try { localStorage.setItem("portal-pesos", JSON.stringify(PESOS)); } catch {} NOTAS = null; telaAnalise(); });
+  });
+  document.getElementById("pesos-reset").addEventListener("click", (ev) => { ev.preventDefault(); PESOS = { ...PESOS_PADRAO }; try { localStorage.removeItem("portal-pesos"); } catch {} NOTAS = null; telaAnalise(); });
+}
+
+function painelFundamentos(e) {
+  const item = INDICE.empresas.find((x) => x.id === e.id);
+  const f = item?.fund, n = notas()[e.id];
+  if (!f) return "";
+  const barra = (k) => { const v = n?.pilares?.[k]; return `<div class="pilar"><span>${PILARES[k].nome}</span><div class="barra"><i style="width:${v == null ? 0 : Math.round(v)}%"></i></div><b class="num">${v == null ? "—" : Math.round(v)}</b></div>`; };
+  const linha = (k, nome) => `<tr><td>${nome}</td><td class="num">${k === "pl" && f.lucro_negativo ? "negativo" : fmtMetr(k, f[k])}</td><td class="num meta">${n?.perc?.[k] == null ? "" : `melhor que ${n.perc[k]}%`}</td></tr>`;
+  return `<h2>Análise fundamentalista</h2>
+    <div class="duas">
+      <div class="painel">
+        <h3>${badgeClasse(n?.classe)} <span class="num" style="margin-left:6px">Nota ${n?.nota == null ? "—" : Math.round(n.nota)}/100</span></h3>
+        <p class="meta" style="margin:0 0 10px">Comparada com ${n?.n || 0} empresas do grupo <b>${esc(n?.grupo || "")}</b>. Pesos ajustáveis na aba Análise. Não é recomendação de investimento.</p>
+        ${Object.keys(PILARES).map(barra).join("")}
+        ${n?.travas?.length ? `<p class="neg" style="margin:10px 0 0">Limitada a Neutra por: ${esc(n.travas.join(" e "))}.</p>` : ""}
+        ${n?.fortes?.length ? `<div class="rotulo">Pontos fortes</div><ul>${n.fortes.map((t) => `<li class="pos">${esc(t)}</li>`).join("")}</ul>` : ""}
+        ${n?.fracos?.length ? `<div class="rotulo">Pontos fracos</div><ul>${n.fracos.map((t) => `<li class="neg">${esc(t)}</li>`).join("")}</ul>` : ""}
+      </div>
+      <div class="painel">
+        <h3>Indicadores (últimos 12 meses até ${esc(f.periodo)})</h3>
+        <table class="ind-tab"><tbody>
+          <tr><td>Preço (${esc(f.preco_ticker || "")}${f.preco_data ? `, ${fmtData(f.preco_data)}` : ""})</td><td class="num">${f.preco == null ? "—" : `${e.moeda === "USD" ? "US$" : "R$"} ${f.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</td><td></td></tr>
+          <tr><td>Valor de mercado</td><td class="num">${dinheiro(f.valor_mercado, e.moeda)}</td><td></td></tr>
+          ${linha("pl", "P/L")}${e.financeira ? "" : linha("ev_ebitda", "EV/EBITDA")}${linha("pvp", "P/VP")}${e.financeira ? "" : linha("fcf_yield", "FCF yield")}
+          ${linha("dy", "Dividend yield")}${linha("roe", "ROE")}${linha("margem_liquida", "Margem líquida")}${linha("volatilidade_margem", "Oscilação da margem")}
+          ${e.financeira ? "" : linha("div_ebitda", "Dívida líquida/EBITDA")}${linha("cresc_receita_1a", "Crescimento da receita (12m)")}${linha("cresc_lucro_1a", "Crescimento do lucro (12m)")}${linha("cresc_receita_2a", "Crescimento da receita (2 anos, ao ano)")}
+        </tbody></table>
+      </div>
+    </div>`;
 }

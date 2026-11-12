@@ -25,6 +25,7 @@ os.makedirs(os.path.join(_RAIZ, "site", "data"), exist_ok=True)
 sys.stdout = _Tee(sys.__stdout__, open(os.path.join(_RAIZ, "site", "data", "log.txt"), "w", encoding="utf-8"))
 
 import b3  # noqa: E402
+import fundamentos  # noqa: E402
 import sec  # noqa: E402
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,6 +70,7 @@ def resumo_indice(e: dict) -> dict:
         "pendente": e.get("pendente"),
         "positivos": e["resumo"].get("positivos", [])[:2],
         "negativos": e["resumo"].get("negativos", [])[:2],
+        "fund": e.get("fund"),
     }
 
 
@@ -85,6 +87,8 @@ def main():
         empresas += sec.processar(cfg, cache_ia)
     if so in ("", "b3"):
         empresas += b3.processar(cfg, cache_ia)
+
+    fundamentos.aplicar(empresas)
 
     indice = []
     for e in empresas:

@@ -86,7 +86,7 @@ function telaInicio() {
   const cont = (v) => L.filter((e) => e.veredito === v).length;
   $app.innerHTML = `
     <h1>Resultados das empresas</h1>
-    <p class="sub">${L.filter((e) => e.mercado === "B3").length} empresas mais negociadas da B3 e ${L.filter((e) => e.mercado === "BDR").length} BDRs ligadas a inteligência artificial. Último trimestre divulgado de cada uma.</p>
+    <p class="sub">${L.filter((e) => e.mercado === "B3").length} empresas mais negociadas da B3 e ${L.filter((e) => e.mercado === "BDR").length} BDRs ligadas a inteligência artificial. Último trimestre de cada uma disponível nas bases oficiais (a da CVM é atualizada semanalmente).</p>
     <div class="placar">
       <div><b class="pos">${cont("Bom")}</b><span>resultados bons</span></div>
       <div><b style="color:var(--misto)">${cont("Misto")}</b><span>resultados mistos</span></div>
@@ -165,7 +165,7 @@ function telaCalendario() {
       ${[["todos", "Todos"], ["B3", "B3"], ["BDR", "BDRs IA"]].map(([k, t]) => `<button data-v="${k}" class="${estado.mercado === k ? "on" : ""}">${t}</button>`).join("")}
     </div></div>
     ${atrasados.length ? `<h2>Pode sair a qualquer momento (${atrasados.length})</h2>
-      <p class="legenda">A data estimada já passou e o resultado ainda não está nos dados oficiais.</p>
+      <p class="legenda">A data estimada já passou e o resultado ainda não está nos dados oficiais. Na B3, muitas vezes ele já saiu: a CVM publica a base de dados aberta uma vez por semana, então os números podem levar alguns dias para aparecer aqui.</p>
       <div class="cal-dia">${atrasados.map((e) => item(e, e.pendente ? `anunciado em ${fmtData(e.pendente)}, aguardando 10-Q` : `previsto ${fmtData(e.proximo.data)}`)).join("")}</div>` : ""}
     <h2>Próximas divulgações</h2>
     ${Object.keys(porDia).length ? Object.entries(porDia).map(([d, l]) => `<div class="cal-dia"><h3>${nomeDia(d)} <span>${l.length} empresa${l.length > 1 ? "s" : ""}</span></h3>${l.map((e) => item(e, `${esc(e.proximo.tipo)} · estimado (${esc(e.proximo.base)})`)).join("")}</div>`).join("") : `<div class="vazio">Nenhuma divulgação prevista.</div>`}

@@ -356,8 +356,10 @@ def _montar_empresa(cnpj, g, c: Contas, entregas, info, cfg, cache_ia):
         print(f"[B3] sem demonstrações para {g['tickers']}")
         return None
     # trimestres disponíveis = datas de saldo do ativo total
-    fins_all = sorted(c.instantes("BPA|1").keys())
-    fins = fins_all[-12:]
+    q_rec = c.trimestral("DRE|3.01")
+    fins_all = sorted(set(c.instantes("BPA|1")) | set(q_rec))
+    fins = [f for f in fins_all if any(perto(f, g, 6) for g in q_rec)] or fins_all
+    fins = fins[-12:]
     anuais = sorted(c.anual("DRE|3.01").keys())[-4:] or sorted(
         {f for (i, f) in c.fluxos.get("DRE|3.01", {}) if meses(i, f) == 12})[-4:]
     if not fins:

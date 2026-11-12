@@ -1,0 +1,29 @@
+{
+  "_comentario": "Edite este arquivo para mudar quais empresas aparecem no portal.",
+  "indices_b3": ["IBXX"],
+  "_indices_b3_ajuda": "IBXX = IBrX-100 (as ~100 ações mais negociadas). Para ampliar, adicione 'SMLL' (Small Caps) ou 'IBRA' (Índice Brasil Amplo, ~170 ações).",
+  "tickers_b3_extras": [],
+  "tickers_b3_excluir": [],
+  "bdrs": [
+    {"bdr": "NVDC34", "ticker_eua": "NVDA", "nome": "NVIDIA", "tema": "Chips de IA"},
+    {"bdr": "MSFT34", "ticker_eua": "MSFT", "nome": "Microsoft", "tema": "Nuvem e IA"},
+    {"bdr": "GOGL34", "ticker_eua": "GOOGL", "nome": "Alphabet (Google)", "tema": "Nuvem e IA"},
+    {"bdr": "AMZO34", "ticker_eua": "AMZN", "nome": "Amazon", "tema": "Nuvem e IA"},
+    {"bdr": "M1TA34", "ticker_eua": "META", "nome": "Meta", "tema": "Plataformas e IA"},
+    {"bdr": "AAPL34", "ticker_eua": "AAPL", "nome": "Apple", "tema": "Dispositivos e IA"},
+    {"bdr": "TSLA34", "ticker_eua": "TSLA", "nome": "Tesla", "tema": "Autonomia e robótica"},
+    {"bdr": "AVGO34", "ticker_eua": "AVGO", "nome": "Broadcom", "tema": "Chips de IA"},
+    {"bdr": "A1MD34", "ticker_eua": "AMD", "nome": "AMD", "tema": "Chips de IA"},
+    {"bdr": "MUTC34", "ticker_eua": "MU", "nome": "Micron", "tema": "Memória para IA"},
+    {"bdr": "ITLC34", "ticker_eua": "INTC", "nome": "Intel", "tema": "Chips"},
+    {"bdr": "QCOM34", "ticker_eua": "QCOM", "nome": "Qualcomm", "tema": "Chips"},
+    {"bdr": "ORCL34", "ticker_eua": "ORCL", "nome": "Oracle", "tema": "Nuvem e IA"},
+    {"bdr": "P2LT34", "ticker_eua": "PLTR", "nome": "Palantir", "tema": "Software de IA"},
+    {"bdr": "N1OW34", "ticker_eua": "NOW", "nome": "ServiceNow", "tema": "Software de IA"},
+    {"bdr": "SSFO34", "ticker_eua": "CRM", "nome": "Salesforce", "tema": "Software de IA"},
+    {"bdr": "IBMB34", "ticker_eua": "IBM", "nome": "IBM", "tema": "Software de IA"},
+    {"bdr": "ADBE34", "ticker_eua": "ADBE", "nome": "Adobe", "tema": "Software de IA"}
+  ],
+  "anos_historico": 3,
+  "modelo_ia": "claude-haiku-5-5"
+}

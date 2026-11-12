@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal de Resultados</title>
+<meta name="description" content="Resultados trimestrais das empresas mais negociadas da B3 e de BDRs de inteligência artificial, atualizados automaticamente.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="topo">
+  <div class="topo-in">
+    <a href="#/" class="marca"><span class="marca-ico">▤</span> Portal de Resultados</a>
+    <nav class="abas">
+      <a href="#/" data-aba="inicio">Resultados</a>
+      <a href="#/calendario" data-aba="calendario">Calendário</a>
+    </nav>
+    <span class="atualizado" id="atualizado"></span>
+  </div>
+</header>
+<main id="app"><p class="carregando">Carregando…</p></main>
+<footer class="rodape">
+  Dados oficiais: <a href="https://dados.cvm.gov.br/" target="_blank" rel="noopener">CVM – Dados Abertos</a> (B3) e
+  <a href="https://www.sec.gov/edgar" target="_blank" rel="noopener">SEC EDGAR</a> (BDRs). Atualização automática diária.
+  Resumos gerados automaticamente a partir dos números; não constituem recomendação de investimento.
+</footer>
+</body>
+</html>
